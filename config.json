@@ -1,0 +1,24 @@
+{
+  "app": {
+    "name": "NetWatch LMR",
+    "refresh_interval_seconds": 10,
+    "campus_name": "Universidad Politécnica Territorial Paria \"Luis Mariano Rivera\"",
+    "timezone": "America/Caracas",
+    "auto_detect_local_network": true
+  },
+  "telegram": {
+    "enabled": false,
+    "bot_token": "",
+    "chat_id": "",
+    "webhook_url": ""
+  },
+  "subnets": [],
+  "inventory": [
+    
+  ],
+  "alert_policy": {
+    "cooldown_seconds": 180,
+    "threshold_latency_ms": 150,
+    "closed_port_warning": true
+  }
+}

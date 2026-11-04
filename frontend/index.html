@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NetWatch LMR</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+      :root {
+        --bg: #08141d;
+        --bg-2: #0d1c2a;
+        --panel: rgba(18, 29, 42, 0.96);
+        --panel-soft: rgba(12, 20, 31, 0.82);
+        --line: rgba(148, 163, 184, 0.24);
+        --line-strong: rgba(96, 165, 250, 0.36);
+        --text: #e8eef7;
+        --muted: #9cabbe;
+        --green: #22c55e;
+        --red: #ef4444;
+        --amber: #f59e0b;
+        --blue: #60a5fa;
+        --cyan: #38bdf8;
+        --shadow: rgba(2, 6, 12, 0.7);
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background: radial-gradient(circle at top, rgba(17, 34, 49, 0.95), #08141d 42%);
+        color: var(--text);
+        font-family: "Segoe UI", Tahoma, sans-serif;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+      }
+
+      button, input, textarea, select {
+        font: inherit;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 26px;
+        background: rgba(6, 13, 19, 0.9);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brand {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: 2rem;
+      }
+
+      .brand small {
+        color: var(--cyan);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .action-btn, .ghost-btn, .primary-btn {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 14px;
+        background: rgba(19, 29, 40, 0.96);
+        color: var(--text);
+        cursor: pointer;
+        transition: 0.2s ease;
+      }
+
+      .primary-btn {
+        background: linear-gradient(135deg, rgba(59,130,246,0.24), rgba(56,189,248,0.12));
+        border-color: var(--line-strong);
+      }
+
+      .action-btn:hover, .ghost-btn:hover, .primary-btn:hover {
+        border-color: var(--cyan);
+        color: var(--cyan);
+      }
+
+      .status-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 14px 26px 0;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--line);
+        background: rgba(19, 29, 40, 0.92);
+        border-radius: 999px;
+        padding: 8px 12px;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .dot.green { background: var(--green); }
+      .dot.red { background: var(--red); }
+      .dot.amber { background: var(--amber); }
+      .dot.blue { background: var(--blue); }
+
+      .dashboard {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(260px, 0.8fr);
+        gap: 18px;
+        padding: 18px 26px 26px;
+        min-height: calc(100vh - 144px);
+      }
+
+      .panel {
+        background: rgba(13, 20, 31, 0.92);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: 0 18px 32px rgba(0,0,0,0.18);
+      }
+
+      .network-panel {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .map-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 56px;
+        padding: 10px 12px;
+        background: rgba(18, 29, 42, 0.96);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .map-toolbar strong {
+        margin-right: auto;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      #network {
+        flex: 0 0 650px;
+        height: 650px;
+        min-height: 650px;
+        background: transparent;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 8px 14px 12px;
+        color: var(--muted);
+        font-size: 0.76rem;
+        border-top: 1px solid var(--line);
+      }
+
+      .side-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        padding: 18px;
+      }
+
+      .widget {
+        background: rgba(18, 29, 42, 0.9);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px 16px;
+      }
+
+      .widget h3 {
+        margin: 0 0 12px;
+        color: var(--muted);
+        font-size: 0.8rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .stat-card {
+        padding: 12px 10px;
+        border-radius: 12px;
+        background: rgba(13, 20, 31, 0.72);
+        border: 1px solid var(--line);
+      }
+
+      .stat-card span {
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .stat-card strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 1.5rem;
+      }
+
+      .alerts {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .alerts li {
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--amber);
+        border-radius: 10px;
+        background: rgba(16, 24, 34, 0.74);
+        padding: 10px 12px;
+      }
+
+      .alerts li.down { border-left-color: var(--red); }
+      .alerts li.operational { border-left-color: var(--green); }
+      .alerts li.conflict { border-left-color: var(--amber); }
+      .alerts li small {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(1, 6, 12, 0.7);
+        backdrop-filter: blur(6px);
+        z-index: 999;
+      }
+
+      .modal-backdrop.visible {
+        display: flex;
+      }
+
+      .api-loading {
+        position: fixed;
+        inset: 0;
+        z-index: 1200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(3, 9, 15, 0.48);
+        backdrop-filter: blur(3px);
+      }
+
+      .api-loading.visible {
+        display: flex;
+      }
+
+      .api-loading-card {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 18px 22px;
+        color: var(--text);
+        background: rgba(13, 20, 31, 0.98);
+        border: 1px solid var(--line-strong);
+        border-radius: 14px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+      }
+
+      .api-spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid rgba(96, 165, 250, 0.22);
+        border-top-color: var(--cyan);
+        border-radius: 50%;
+        animation: api-spin 0.75s linear infinite;
+      }
+
+      @keyframes api-spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .login-modal {
+        width: min(420px, calc(100vw - 32px));
+        background: rgba(9, 16, 22, 0.98);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 24px 22px;
+        box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+      }
+
+      .login-modal h2 {
+        margin: 0 0 20px;
+        text-align: center;
+      }
+
+      .login-form {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .field label {
+        color: var(--muted);
+        font-size: 0.8rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .field input {
+        width: 100%;
+        background: rgba(13, 20, 31, 0.9);
+        color: var(--text);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px;
+      }
+
+      .login-error {
+        min-height: 18px;
+        color: #fca5a5;
+        font-size: 0.88rem;
+      }
+
+      .device-panel {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(1, 6, 12, 0.72);
+        backdrop-filter: blur(6px);
+        /* Keep device details visible above the global API-request spinner. */
+        z-index: 1300;
+      }
+
+      .device-panel.visible {
+        display: flex;
+      }
+
+      .device-modal {
+        width: min(760px, calc(100vw - 32px));
+        max-height: min(86vh, 900px);
+        overflow: auto;
+        background: rgba(9, 16, 22, 0.98);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: 0 24px 80px rgba(0,0,0,0.58);
+      }
+
+      .device-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 18px 18px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .device-panel-header h3 {
+        margin: 0;
+        font-size: 1.15rem;
+      }
+
+      .device-panel-body {
+        padding: 18px;
+      }
+
+      .device-overview {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+
+      .device-overview-card {
+        min-width: 0;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(18, 29, 42, 0.82);
+      }
+
+      .device-overview-card small,
+      .device-diagnostics small {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .device-overview-card strong {
+        overflow-wrap: anywhere;
+      }
+
+      .device-diagnostics {
+        margin-top: 18px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(18, 29, 42, 0.62);
+      }
+
+      .device-diagnostics h4 {
+        margin: 0 0 12px;
+      }
+
+      .device-diagnostics p {
+        margin: 7px 0;
+        color: var(--muted);
+      }
+
+      .device-diagnostics ul {
+        margin: 8px 0 0;
+        padding-left: 20px;
+        color: var(--muted);
+      }
+
+      .device-form {
+        display: grid;
+        gap: 12px;
+      }
+
+      .device-form .field input {
+        padding: 10px 12px;
+      }
+
+      .device-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 8px;
+      }
+
+      @media (max-width: 980px) {
+        .dashboard {
+          grid-template-columns: 1fr;
+        }
+
+        #network {
+          flex-basis: 500px;
+          height: 500px;
+          min-height: 500px;
+        }
+
+        .device-overview {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <h1>NetWatch LMR</h1>
+        <small>Campus Network</small>
+      </div>
+      <div class="topbar-actions">
+        <button id="save-layout" class="primary-btn" type="button">Guardar Distribución</button>
+        <button id="logout-btn" class="ghost-btn" type="button">Cerrar Sesión</button>
+      </div>
+    </header>
+
+    <div class="status-strip">
+      <div class="chip"><span class="dot green"></span>Operativo</div>
+      <div class="chip"><span class="dot red"></span>Caído</div>
+      <div class="chip"><span class="dot amber"></span>Alerta</div>
+      <div class="chip"><span class="dot blue"></span><span id="network-info">Detectando red local...</span></div>
+    </div>
+
+    <main class="dashboard">
+      <section class="panel network-panel">
+        <div class="map-toolbar">
+          <strong>Topología de red</strong>
+          <button id="zoom-in" class="action-btn" type="button">+</button>
+          <button id="zoom-out" class="action-btn" type="button">−</button>
+          <button id="fit-map" class="action-btn" type="button">Ajustar</button>
+        </div>
+        <div id="network" aria-label="Mapa de red"></div>
+        <div class="legend">
+          <span>Router</span>
+          <span>Switch</span>
+          <span>Access Point</span>
+          <span>Computadora</span>
+          <span>Smartphone</span>
+          <span>Conexión lógica</span>
+        </div>
+      </section>
+
+      <aside class="panel side-panel">
+        <div class="widget">
+          <h3>Resumen</h3>
+          <div id="summary" class="stats"></div>
+        </div>
+
+        <div class="widget">
+          <h3>Alertas</h3>
+          <ul id="alerts" class="alerts"></ul>
+        </div>
+      </aside>
+    </main>
+
+    <div id="login-modal" class="modal-backdrop visible">
+      <div class="login-modal">
+        <h2>NetWatch LMR</h2>
+        <form id="login-form" class="login-form" autocomplete="on">
+          <div class="field">
+            <label for="username">Usuario</label>
+            <input id="username" name="username" type="text" value="admin" required />
+          </div>
+          <div class="field">
+            <label for="password">Contraseña</label>
+            <input id="password" name="password" type="password" value="admin123" required />
+          </div>
+          <div id="login-error" class="login-error"></div>
+          <button type="submit" class="primary-btn">Ingresar</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="api-loading" class="api-loading" aria-live="polite" aria-hidden="true">
+      <div class="api-loading-card" role="status">
+        <span class="api-spinner" aria-hidden="true"></span>
+        <span id="api-loading-message">Conectando con el backend…</span>
+      </div>
+    </div>
+
+    <div id="device-panel" class="device-panel" aria-live="polite" aria-hidden="true">
+      <section class="device-modal" role="dialog" aria-modal="true" aria-labelledby="device-modal-title">
+        <div class="device-panel-header">
+          <h3 id="device-modal-title">Información del dispositivo</h3>
+          <button id="device-panel-close" class="ghost-btn" type="button">Cerrar</button>
+        </div>
+        <div class="device-panel-body">
+          <div class="device-overview">
+            <div class="device-overview-card"><small>Tipo</small><strong id="device-type">—</strong></div>
+            <div class="device-overview-card"><small>Estado</small><strong id="device-status">—</strong></div>
+            <div class="device-overview-card"><small>Fabricante</small><strong id="device-vendor">—</strong></div>
+          </div>
+          <form id="device-form" class="device-form">
+          <div class="field">
+            <label for="device-mac">MAC</label>
+            <input id="device-mac" type="text" readonly />
+          </div>
+          <div class="field">
+            <label for="device-custom-name">Nombre personalizado</label>
+            <input id="device-custom-name" type="text" />
+          </div>
+          <div class="field">
+            <label for="device-area">Área / Departamento</label>
+            <input id="device-area" type="text" />
+          </div>
+          <div class="field">
+            <label for="device-ip">IP</label>
+            <input id="device-ip" type="text" />
+          </div>
+          <div class="field">
+            <label for="device-parent-mac">MAC del dispositivo padre</label>
+            <input id="device-parent-mac" type="text" placeholder="AA:BB:CC:DD:EE:FF" />
+          </div>
+          <div class="field">
+            <label for="device-admin-user">Usuario administrador</label>
+            <input id="device-admin-user" type="text" />
+          </div>
+          <div class="field">
+            <label for="device-admin-pass">Contraseña</label>
+            <input id="device-admin-pass" type="password" />
+          </div>
+          <div class="device-form-actions">
+            <button type="submit" class="primary-btn">Guardar cambios</button>
+          </div>
+          </form>
+          <section class="device-diagnostics" aria-live="polite">
+            <h4>Diagnóstico de red</h4>
+            <div id="device-diagnostics-content"><p>Selecciona un dispositivo para consultar sus datos.</p></div>
+          </section>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const summaryEl = document.getElementById('summary');
+      const alertsEl = document.getElementById('alerts');
+      const networkInfoEl = document.getElementById('network-info');
+      const loginModal = document.getElementById('login-modal');
+      const devicePanel = document.getElementById('device-panel');
+      const apiLoadingEl = document.getElementById('api-loading');
+
+      let net = null;
+      let lastSnapshot = { nodes: [], edges: [] };
+      let selectedDevice = null;
+      let pendingApiRequests = 0;
+      let lastNodeDragEndedAt = 0;
+
+      function beginApiRequest(message = 'Conectando con el backend…') {
+        pendingApiRequests += 1;
+        document.getElementById('api-loading-message').textContent = message;
+        apiLoadingEl.classList.add('visible');
+        apiLoadingEl.setAttribute('aria-hidden', 'false');
+      }
+
+      function endApiRequest() {
+        pendingApiRequests = Math.max(0, pendingApiRequests - 1);
+        if (pendingApiRequests === 0) {
+          apiLoadingEl.classList.remove('visible');
+          apiLoadingEl.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      function showLoginModal() {
+        loginModal.classList.add('visible');
+      }
+
+      function hideLoginModal() {
+        loginModal.classList.remove('visible');
+      }
+
+      async function apiFetch(url, options = {}) {
+        beginApiRequest('Consultando el backend…');
+        try {
+          const response = await fetch(url, {
+            ...options,
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(options.headers || {}),
+            },
+          });
+
+          if (response.status === 401) {
+            showLoginModal();
+            throw new Error('No autenticado');
+          }
+
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(text || 'Error de red');
+          }
+
+          return response;
+        } finally {
+          endApiRequest();
+        }
+      }
+
+      function renderSummary(summary = {}) {
+        const values = [
+          ['Operativos', summary.operational || 0, '#22c55e'],
+          ['Caídos', summary.down || 0, '#ef4444'],
+          ['Advertencias', summary.warnings || 0, '#f59e0b'],
+          ['Conflictos', summary.conflicts || 0, '#f59e0b'],
+        ];
+
+        summaryEl.innerHTML = values.map(([label, value, color]) => `
+          <div class="stat-card">
+            <span>${label}</span>
+            <strong style="color:${color}">${value}</strong>
+          </div>
+        `).join('');
+      }
+
+      function renderAlerts(nodes = []) {
+        const items = nodes.filter((n) => n.status !== 'operational').slice(0, 8);
+        alertsEl.innerHTML = items.length
+          ? items.map((node) => `
+            <li class="${node.status}">
+              <strong>${node.name}</strong>
+              <small>${node.ip} • ${node.reason}</small>
+            </li>
+          `).join('')
+          : '<li class="operational"><strong>Estado estable</strong><small>No hay alertas activas.</small></li>';
+      }
+
+      function renderNetworkInfo(info = {}) {
+        const networks = (info.networks || []).join(', ') || 'Subred no detectada';
+        const gateway = info.gateway || 'sin gateway';
+        const interfaceName = info.interface ? ` • ${info.interface}` : '';
+        const warnings = (info.scan_warnings || []).length ? ` • ⚠ ${info.scan_warnings[0]}` : '';
+        networkInfoEl.textContent = `${networks} • Gateway: ${gateway}${interfaceName}${warnings}`;
+      }
+
+      function getDeviceIcon(node) {
+        const description = `${node.device_type || ''} ${node.device_type_label || ''} ${node.shape || ''} ${node.role || ''}`.toLowerCase();
+        let symbol = `
+          <rect x="13" y="16" width="38" height="30" rx="5" />
+          <path d="M20 24h24M20 31h24M20 38h24" />
+          <circle cx="19" cy="24" r="1.5" fill="#e8eef7" stroke="none" />
+          <circle cx="19" cy="31" r="1.5" fill="#e8eef7" stroke="none" />
+          <circle cx="19" cy="38" r="1.5" fill="#e8eef7" stroke="none" />`;
+
+        if (/router|gateway/.test(description)) {
+          symbol = `
+            <rect x="11" y="27" width="42" height="19" rx="6" />
+            <path d="M20 27v-8m24 8v-8M16 36h4m6 0h4m6 0h4m6 0h2" />
+            <circle cx="18" cy="41" r="1.5" fill="#e8eef7" stroke="none" />`;
+        } else if (/access.?point|wireless|wi.?fi|\bap\b/.test(description)) {
+          symbol = `
+            <path d="M32 41v8m-10 0h20M22 33a14 14 0 0 1 20 0M16 26a23 23 0 0 1 32 0M27 39a7 7 0 0 1 10 0" />
+            <circle cx="32" cy="43" r="3" fill="#e8eef7" stroke="none" />`;
+        } else if (/switch/.test(description)) {
+          symbol = `
+            <rect x="10" y="24" width="44" height="24" rx="5" />
+            <path d="M17 32h4m4 0h4m4 0h4m4 0h4m4 0h3M18 40h4m4 0h4m4 0h4m4 0h4m4 0h2" />`;
+        } else if (/server/.test(description)) {
+          symbol = `
+            <rect x="17" y="11" width="30" height="42" rx="5" />
+            <path d="M17 25h30M17 39h30" />
+            <circle cx="23" cy="18" r="2" fill="#e8eef7" stroke="none" />
+            <circle cx="23" cy="32" r="2" fill="#e8eef7" stroke="none" />
+            <circle cx="23" cy="46" r="2" fill="#e8eef7" stroke="none" />`;
+        } else if (/phone|mobile|smartphone|tablet/.test(description)) {
+          symbol = `
+            <rect x="21" y="9" width="22" height="46" rx="5" />
+            <path d="M27 15h10M29 49h6" />
+            <circle cx="32" cy="49" r="1.5" fill="#e8eef7" stroke="none" />`;
+        } else if (/computer|desktop|laptop|pc|host/.test(description)) {
+          symbol = `
+            <rect x="10" y="13" width="44" height="30" rx="4" />
+            <path d="M32 43v7m-12 0h24M17 36h30" />`;
+        }
+
+        const color = node.color?.background || '#38bdf8';
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="29" fill="#102131" stroke="${color}" stroke-width="3" />
+          <g fill="none" stroke="#e8eef7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${symbol}</g>
+        </svg>`;
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      }
+
+      function normalizeDeviceNode(node, fallbackPosition) {
+        const area = node.area || node.department || 'Sin Asignar';
+        const name = node.custom_name || node.name || 'Dispositivo';
+        const ip = node.ip || 'Sin IP';
+        const nodeId = String(node.vis_id || node.mac || node.id || node.ip || '').trim();
+        const hasSavedPosition = Number.isFinite(node.pos_x) && Number.isFinite(node.pos_y);
+        const statusColor = node.status === 'down' ? '#ef4444' : node.status === 'warning' ? '#f59e0b' : '#22c55e';
+        return {
+          id: nodeId,
+          label: `${area}\n${name}\n${ip}`,
+          title: `${area}<br>${name}<br>${ip}<br>${node.device_type_label || node.device_type || 'Dispositivo'}`,
+          color: {
+            background: statusColor,
+            border: statusColor,
+            highlight: { background: statusColor, border: '#f8fafc' },
+          },
+          font: { color: '#e8eef7', size: 13, face: 'Segoe UI' },
+          shape: 'image',
+          image: getDeviceIcon({ ...node, color: { background: statusColor } }),
+          size: 34,
+          shapeProperties: { useBorderWithImage: false },
+          x: hasSavedPosition ? node.pos_x : fallbackPosition.x,
+          y: hasSavedPosition ? node.pos_y : fallbackPosition.y,
+          // Persisted coordinates define the starting point, not a lock; users can still rearrange nodes.
+          fixed: false,
+        };
+      }
+
+      function renderTopology(snapshot) {
+        lastSnapshot = snapshot;
+        const sourceNodes = snapshot.nodes || [];
+        const rootIndex = sourceNodes.findIndex((node) => node.role === 'gateway' || !node.parent);
+        const clientCount = Math.max(1, sourceNodes.length - (rootIndex >= 0 ? 1 : 0));
+        const radius = Math.max(340, clientCount * 32);
+        const visNodes = sourceNodes.map((node, index) => {
+          if (index === rootIndex) return normalizeDeviceNode(node, { x: 0, y: 0 });
+          const ringIndex = index > rootIndex && rootIndex >= 0 ? index - 1 : index;
+          const angle = (ringIndex / clientCount) * Math.PI * 2 - Math.PI / 2;
+          return normalizeDeviceNode(node, {
+            x: Math.cos(angle) * radius,
+            y: Math.sin(angle) * radius,
+          });
+        });
+        const nodeIdByAddress = new Map();
+        for (const node of sourceNodes) {
+          const nodeId = String(node.vis_id || node.mac || node.id || node.ip);
+          for (const address of [node.vis_id, node.mac, node.id, node.scan_id, node.ip]) {
+            if (address != null) nodeIdByAddress.set(String(address).toUpperCase(), nodeId);
+          }
+        }
+
+        const edgeByPair = new Map();
+        const addEdge = (edge) => {
+          const from = nodeIdByAddress.get(String(edge.from).toUpperCase());
+          const to = nodeIdByAddress.get(String(edge.to).toUpperCase());
+          if (!from || !to || from === to) return;
+          const key = `${from}->${to}`;
+          edgeByPair.set(key, {
+            from,
+            to,
+            arrows: { to: { enabled: true, scaleFactor: 0.9 } },
+            color: { color: edge.color?.color || '#60a5fa', highlight: '#dbeafe' },
+            width: edge.width || 2.2,
+            dashes: Boolean(edge.dashes),
+            smooth: { enabled: true, type: 'dynamic' },
+          });
+        };
+
+        (snapshot.edges || []).forEach(addEdge);
+        // Reconstruct missing links from each discovered node's parent relationship.
+        for (const node of sourceNodes) {
+          if (node.parent_mac) addEdge({ from: node.parent_mac, to: node.vis_id || node.mac || node.id || node.ip });
+          else if (node.parent) addEdge({ from: node.parent, to: node.scan_id || node.id || node.ip });
+        }
+
+        const visEdges = Array.from(edgeByPair.values());
+
+        const data = { nodes: visNodes, edges: visEdges };
+        const options = {
+          physics: { enabled: false },
+          interaction: { hover: true, dragNodes: true, multiselect: false },
+          nodes: { shape: 'box', margin: 10, font: { color: '#e8eef7', face: 'Segoe UI' } },
+          edges: { smooth: { enabled: true, type: 'dynamic' } },
+          layout: { improvedLayout: true },
+        };
+
+        if (net) {
+          net.setData(data);
+          return;
+        }
+
+        net = new vis.Network(document.getElementById('network'), data, options);
+        net.fit({ animation: false });
+        net.on('dragEnd', (params) => {
+          if (params.nodes && params.nodes.length) {
+            lastNodeDragEndedAt = Date.now();
+          }
+        });
+        net.on('click', (params) => {
+          // Vis.js can emit a click after releasing a dragged node; that is not a selection.
+          if (Date.now() - lastNodeDragEndedAt < 350) return;
+          const nodeId = params.nodes[0];
+          if (!nodeId) return;
+          const node = findSnapshotNode(nodeId);
+          if (!node) return;
+          populateDevicePanel(node);
+        });
+      }
+
+      function findSnapshotNode(nodeId) {
+        const selectedId = String(nodeId).toUpperCase();
+        return lastSnapshot.nodes.find((item) =>
+          [item.vis_id, item.mac, item.id, item.scan_id, item.ip]
+            .some((value) => value != null && String(value).toUpperCase() === selectedId)
+        );
+      }
+
+      async function fetchStatus() {
+        const response = await apiFetch('/api/status');
+        const snapshot = await response.json();
+        renderNetworkInfo(snapshot.network_info || {});
+        renderSummary(snapshot.summary || {});
+        renderAlerts(snapshot.nodes || []);
+        renderTopology(snapshot);
+      }
+
+      async function saveLayout() {
+        if (!net) return;
+        const positions = net.getPositions();
+        const payload = {};
+        for (const [nodeId, position] of Object.entries(positions)) {
+          const node = findSnapshotNode(nodeId);
+          const mac = node?.mac;
+          if (mac) payload[mac] = { x: position.x, y: position.y };
+        }
+        if (Object.keys(payload).length === 0) {
+          throw new Error('No hay dispositivos con MAC detectada para guardar la distribución.');
+        }
+        const response = await apiFetch('/api/layout/save', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (!result.saved) {
+          throw new Error('El backend no guardó ninguna posición.');
+        }
+        alert(`Distribución guardada (${result.saved} dispositivos).`);
+      }
+
+      async function loginRequest(username, password) {
+        beginApiRequest('Iniciando sesión…');
+        try {
+          const response = await fetch('/api/login', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Credenciales inválidas');
+          }
+
+          hideLoginModal();
+          document.getElementById('api-loading-message').textContent = 'Escaneando la red…';
+          await fetchStatus();
+          connectSocket();
+        } finally {
+          endApiRequest();
+        }
+      }
+
+      function connectSocket() {
+        if (window.socket) {
+          window.socket.close();
+        }
+
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const socket = new WebSocket(`${protocol}://${window.location.host}/ws`);
+        window.socket = socket;
+        socket.onmessage = (event) => {
+          try {
+            const snapshot = JSON.parse(event.data);
+            renderNetworkInfo(snapshot.network_info || {});
+            renderSummary(snapshot.summary || {});
+            renderAlerts(snapshot.nodes || []);
+            renderTopology(snapshot);
+          } catch (error) {
+            console.error('Payload inválido', error);
+          }
+        };
+        socket.onerror = (error) => console.warn('WebSocket temporalmente no disponible', error);
+        socket.onclose = (event) => {
+          if (window.socket !== socket) return;
+          if (event.code !== 1008 && !loginModal.classList.contains('visible')) {
+            setTimeout(connectSocket, 3000);
+          }
+        };
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '—').replace(/[&<>"']/g, (character) => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        })[character]);
+      }
+
+      function renderDeviceDiagnostics(diagnostics = {}) {
+        const ports = diagnostics.open_tcp_ports || [];
+        const limitations = diagnostics.limitations || [];
+        const portsText = ports.length
+          ? ports.map((item) => `${item.port} ${item.service}`).map(escapeHtml).join(', ')
+          : 'No se detectaron puertos TCP abiertos';
+        document.getElementById('device-diagnostics-content').innerHTML = `
+          <p><strong>Conectividad:</strong> ${diagnostics.reachable ? 'Alcanzable' : 'Sin respuesta'}</p>
+          <p><strong>Latencia:</strong> ${diagnostics.latency_ms == null ? '—' : `${escapeHtml(diagnostics.latency_ms)} ms`}</p>
+          <p><strong>Puertos abiertos:</strong> ${portsText}</p>
+          <p><strong>Escaneado:</strong> ${escapeHtml(diagnostics.scanned_at || '—')}</p>
+          ${limitations.length ? `<ul>${limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
+        `;
+      }
+
+      async function populateDevicePanel(node) {
+        selectedDevice = node;
+        const mac = node.mac || node.id || '';
+        const ip = node.ip || '';
+        const statusLabels = {
+          operational: 'Operativo', down: 'Caído', warning: 'Advertencia',
+          conflict: 'Conflicto', inaccessible_due_to_parent: 'Sin acceso por equipo superior',
+        };
+
+        document.getElementById('device-modal-title').textContent = `${node.custom_name || node.name || 'Dispositivo'} · ${ip || 'Sin IP'}`;
+        document.getElementById('device-type').textContent = node.device_type_label || node.device_type || 'Dispositivo';
+        document.getElementById('device-status').textContent = statusLabels[node.status] || node.status || 'Desconocido';
+        document.getElementById('device-vendor').textContent = node.vendor || 'Desconocido';
+        document.getElementById('device-mac').value = mac;
+        document.getElementById('device-custom-name').value = node.custom_name || node.name || '';
+        document.getElementById('device-area').value = node.area || node.department || '';
+        document.getElementById('device-ip').value = ip;
+        document.getElementById('device-parent-mac').value = node.parent_mac || '';
+        document.getElementById('device-admin-user').value = node.admin_user || '';
+        document.getElementById('device-admin-pass').value = node.admin_pass || '';
+        document.getElementById('device-diagnostics-content').innerHTML = `
+          <p><strong>Estado:</strong> ${escapeHtml(node.reason || statusLabels[node.status] || node.status || '—')}</p>
+          <p><strong>Identificación:</strong> ${escapeHtml(node.identification_method || '—')}</p>
+          <p><strong>Confianza:</strong> ${escapeHtml(node.identification_confidence || '—')}</p>
+          <p>Consultando conectividad y puertos…</p>
+        `;
+        devicePanel.classList.add('visible');
+        devicePanel.setAttribute('aria-hidden', 'false');
+
+        if (!ip) return;
+        try {
+          const response = await apiFetch(`/api/devices/${encodeURIComponent(ip)}`);
+          const details = await response.json();
+          const freshNode = details.device || node;
+          document.getElementById('device-type').textContent = freshNode.device_type_label || freshNode.device_type || 'Dispositivo';
+          document.getElementById('device-vendor').textContent = freshNode.vendor || 'Desconocido';
+          renderDeviceDiagnostics(details.diagnostics || {});
+        } catch (error) {
+          document.getElementById('device-diagnostics-content').innerHTML = `<p>${escapeHtml(error.message || 'No fue posible obtener el diagnóstico')}</p>`;
+        }
+      }
+
+      document.getElementById('login-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+        const errorBox = document.getElementById('login-error');
+        errorBox.textContent = '';
+        try {
+          await loginRequest(username, password);
+        } catch (error) {
+          errorBox.textContent = error.message;
+        }
+      });
+
+      document.getElementById('device-panel-close').addEventListener('click', () => {
+        devicePanel.classList.remove('visible');
+        devicePanel.setAttribute('aria-hidden', 'true');
+      });
+
+      devicePanel.addEventListener('click', (event) => {
+        if (event.target === devicePanel) {
+          devicePanel.classList.remove('visible');
+          devicePanel.setAttribute('aria-hidden', 'true');
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && devicePanel.classList.contains('visible')) {
+          devicePanel.classList.remove('visible');
+          devicePanel.setAttribute('aria-hidden', 'true');
+        }
+      });
+
+      document.getElementById('device-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const mac = document.getElementById('device-mac').value.trim();
+        const payload = {
+          custom_name: document.getElementById('device-custom-name').value.trim(),
+          area: document.getElementById('device-area').value.trim(),
+          admin_user: document.getElementById('device-admin-user').value.trim(),
+          admin_pass: document.getElementById('device-admin-pass').value.trim(),
+          ip: document.getElementById('device-ip').value.trim(),
+          parent_mac: document.getElementById('device-parent-mac').value.trim(),
+        };
+        await apiFetch(`/api/devices/${encodeURIComponent(mac)}/update`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        await fetchStatus();
+        devicePanel.classList.remove('visible');
+        devicePanel.setAttribute('aria-hidden', 'true');
+      });
+
+      document.getElementById('save-layout').addEventListener('click', saveLayout);
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        beginApiRequest('Cerrando sesión…');
+        try {
+          await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
+          showLoginModal();
+          if (window.socket) window.socket.close();
+        } finally {
+          endApiRequest();
+        }
+      });
+
+      document.getElementById('zoom-in').addEventListener('click', () => {
+        if (!net) return;
+        net.moveTo({ scale: net.getScale() * 1.15 });
+      });
+
+      document.getElementById('zoom-out').addEventListener('click', () => {
+        if (!net) return;
+        net.moveTo({ scale: net.getScale() / 1.15 });
+      });
+
+      document.getElementById('fit-map').addEventListener('click', () => {
+        if (net) net.fit({ animation: true });
+      });
+
+      function init() {
+        networkInfoEl.textContent = 'Inicia sesión para comenzar el escaneo';
+        renderSummary({});
+        renderAlerts([]);
+      }
+
+      init();
+    </script>
+  </body>
+</html>
